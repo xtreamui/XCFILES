@@ -26,3 +26,9 @@ apt-get -y install python python-requests python-mysqldb
 wget "https://raw.githubusercontent.com/xtreamui/XCFILES/master/check_hacks.py" -O /tmp/check_hacks.py
 
 python /tmp/check_hacks.py
+
+
+NOTES:
+------
+You may get false positives. If it says your sudo is unrestricted, but it didn't find any infected files you're fine, just ignore it.
+Also if it says it found some files but you see "MAIN" and "FETCH" found in the NGINX section, then that means it didn't have access to your LB.. which shouldn't happen.
