@@ -49,7 +49,7 @@ if __name__ == "__main__":
         sys.exit(1)
     # Get LB Password
     rRet = rCursor.execute("SELECT `live_streaming_pass` FROM `settings`;")
-    rPassword = rCursor.fetchall()[0]
+    rPassword = rCursor.fetchall()[0][0]
     # Get Load Balancers
     rRet = rCursor.execute("SELECT `id`, `server_ip`, `http_broadcast_port` FROM `streaming_servers`;")
     rServers = rCursor.fetchall()
@@ -90,27 +90,36 @@ if __name__ == "__main__":
                     try: rResponse = requests.post(rAPI, data=rData, timeout=5).content
                     except: rFailed = True
         # Check Sudo
-        rData = {"action": "getFile", "filename": "/etc/passwd", "password": rPassword}
-        rFileData = requests.post(rAPI, data=rData, timeout=5).content
-        if len(rFileData) == 0:
-            rData = {"action": "runCMD", "command": "sudo cat /etc/passwd", "password": rPassword}
-            try: rFileData = json.loads(requests.post(rAPI, data=rData, timeout=5).content)[0]
-            except: rFileData = ""
-        if len(rFileData) > 0:
+        rData = {"action": "runCMD", "command": "passwd --status xtreamcodes", "password": rPassword}
+        try: rResponse = json.loads(requests.post(rAPI, data=rData, timeout=5).content)[0].split()
+        except:
+            rFailed = True
+            rResponse = []
+        if len(rResponse) > 1 and rResponse[0] == "xtreamcodes" and rResponse[1].upper() == "P":
             print " "
             rInfected = True
-            print "Xtream Codes user has unrestricted sudo!"
-            rData = {"action": "runCMD", "command": "sudo passwd -d xtreamcodes && sudo usermod -s /usr/sbin/nologin xtreamcodes", "password": rPassword}
-            rResponse = requests.post(rAPI, data=rData, timeout=5).content
-            # Main server only!
+            print "Xtream Codes user has a password!"
+            if int(rServer[0]) == int(rConfig["server_id"]):
+                os.system("sudo passwd -d xtreamcodes >/dev/null 2>&1")
+                os.system("sudo usermod -s /usr/sbin/nologin xtreamcodes >/dev/null 2>&1")
+            else:
+                rCommand = "sudo passwd -d xtreamcodes && sudo usermod -s /usr/sbin/nologin xtreamcodes"
+                rData = {"action": "runCMD", "command": rCommand, "password": rPassword}
+                rResponse = requests.post(rAPI, data=rData, timeout=5).content
+            rData = {"action": "runCMD", "command": "passwd --status xtreamcodes", "password": rPassword}
+            try: rResponse = json.loads(requests.post(rAPI, data=rData, timeout=5).content)[0].split()
+            except: pass
+            if len(rResponse) > 1 and rResponse[0] == "xtreamcodes" and rResponse[1].upper() == "P": print "Couldn't disable user password... Please disable it manually on the LB, check github notes."
+            if int(rServer[0]) <> int(rConfig["server_id"]):  print "You may need to modify /etc/sudoers manually on this load balancer. Delete any duplicate after the first `xtreamcodes` line."
+        # Main server only!
+        if int(rServer[0]) == int(rConfig["server_id"]):
             rSudoers = open("/etc/sudoers", "r").read()
             if "xtreamcodes ALL=(ALL:ALL) NOPASSWD:ALL" in rSudoers:
-                print "Writing sudoers on local system."
+                print "Xtream Codes user has unrestricted sudo! Fixing on main..."
                 rSudoers = rSudoers.replace("xtreamcodes ALL=(ALL:ALL) NOPASSWD:ALL", "")
                 rFile = open("/etc/sudoers", "w")
                 rFile.write(rSudoers)
                 rFile.close()
-            print "You will need to modify /etc/sudoers manually on this load balancer. Delete any duplicate after the first `xtreamcodes` line."
         # Check start_services.sh
         rFile = open(rBasePath + "/start_services.sh", "r").read()
         rNewServices = []
@@ -140,15 +149,19 @@ if __name__ == "__main__":
                 rQ = None
                 while rQ not in ["Y", "N"]: rQ = raw_input("Would you like to secure your MySQL and only allow LB's to connect? (Enter Y/N) : ").upper()
                 if rQ == "Y":
-                    while True:
-                        rRootPass = raw_input("Please enter your MySQL Root Password: ")
-                        try:
-                            rDB = MySQLdb.connect(host="127.0.0.1", user="root", passwd=rRootPass, port=int(rConfig["db_port"]))
-                            rCursor = rDB.cursor()
-                            print "Connected!"
-                            print " "
-                            break
-                        except: print "No MySQL connection! Try again..."
+                    rRet = os.system("mysql -u root -e \"SELECT VERSION()\" >/dev/null 2>&1")
+                    if rRet == 0:
+                        print "Connected without password."
+                        rRootPass = None
+                    else:
+                        while True:
+                            rRootPass = raw_input("Please enter your MySQL Root Password: ")
+                            rRet = os.system("mysql -u root -p%s -e \"SELECT VERSION()\" >/dev/null 2>&1" % rRootPass)
+                            if rRet == 0:
+                                print "Connected!"
+                                print " "
+                                break
+                            else: print "No MySQL connection! Try again..."
                     rQ = None
                     while rQ not in ["Y", "N"]: rQ = raw_input("Would you like to generate a new MySQL password? (Enter Y/N) : ").upper()
                     rNewPass = False
@@ -178,12 +191,18 @@ if __name__ == "__main__":
                             rCommand = "echo \"%s\" > %s/config" % (rNewConfig, rBasePath)
                             rData = {"action": "runCMD", "command": rCommand, "password": rPassword}
                             rResponse = requests.post(rAPI, data=rData, timeout=5).content
-                    rRet = rCursor.execute("REVOKE ALL PRIVILEGES ON *.* FROM '%s'@'%%';" % rConfig["db_user"])
+                    rCommand = "REVOKE ALL PRIVILEGES ON *.* FROM '%s'@'%%';" % rConfig["db_user"]
+                    if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
+                    else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
                     print " "
                     for rHost in rHosts:
                         print "Granted access from: %s" % rHost
-                        rRet = rCursor.execute("GRANT ALL ON %s.* to '%s'@'%s' identified by '%s';" % (rConfig["db_name"], rConfig["db_user"], rHost, rMySQLPass))
-                    rRet = rCursor.execute("FLUSH PRIVILEGES")
+                        rCommand = "GRANT ALL ON %s.* TO '%s'@'%s' IDENTIFIED BY '%s';" % (rConfig["db_name"], rConfig["db_user"], rHost, rMySQLPass)
+                        if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
+                        else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
+                    rCommand = "FLUSH PRIVILEGES;"
+                    if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
+                    else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
                     rDB.commit()
             else: print "MySQL is secure from the outside world! :)"
             break
