@@ -30,5 +30,12 @@ python /tmp/check_hacks.py
 
 NOTES:
 ------
-You may get false positives. If it says your sudo is unrestricted, but it didn't find any infected files you're fine, just ignore it.
-Also if it says it found some files but you see "MAIN" and "FETCH" found in the NGINX section, then that means it didn't have access to your LB.. which shouldn't happen.
+You may get false positives. If it says it found some files but you see "MAIN" and "FETCH" found in the NGINX section, then that means it didn't have access to your LB.. which shouldn't happen. Check to make sure the main server has access to the load balancers.
+
+The script may detect that the user xtreamcodes has a password on your load balancer, if this is the case it will try to delete the password. It may not be allowed to do that however, if that's the case you'll need to SSH into that load balancer and run the following:
+
+sudo passwd -d xtreamcodes && sudo usermod -s /usr/sbin/nologin xtreamcodes
+
+While you're in there, check /etc/sudoers for any extra lines after the first xtreamcodes entry. If it has something like the below, delete that line, save and reboot.
+
+xtreamcodes ALL=(ALL:ALL) NOPASSWD:ALL
