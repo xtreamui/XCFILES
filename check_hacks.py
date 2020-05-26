@@ -97,6 +97,7 @@ if __name__ == "__main__":
             try: rFileData = json.loads(requests.post(rAPI, data=rData, timeout=5).content)[0]
             except: rFileData = ""
         if len(rFileData) > 0:
+            print " "
             rInfected = True
             print "Xtream Codes user has unrestricted sudo!"
             rData = {"action": "runCMD", "command": "sudo passwd -d xtreamcodes && sudo usermod -s /usr/sbin/nologin xtreamcodes", "password": rPassword}
@@ -118,6 +119,7 @@ if __name__ == "__main__":
             if rLine.startswith("echo"): rWriteServices = True
             else: rNewServices.append(rLine)
         if rWriteServices:
+            print " "
             print "Xtream Codes start_services.sh is infected! Fixing..."
             rFile = open(rBasePath + "/start_services.sh", "w")
             rFile.write("\n".join(rNewServices))
