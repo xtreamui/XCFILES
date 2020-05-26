@@ -1,4 +1,4 @@
-Expiremental tool to remove any hacks and exploits from your server, change your MySQL password and secure your MySQL installation from the outside world.
+Experimental tool to remove any hacks and exploits from your server, change your MySQL password and secure your MySQL installation from the outside world.
 There is one step it cannot fully perform, and that is removing any duplicates of "xtreamcodes" from /etc/sudoers on your load balancers. It will alert you of the line's presence, you'll have to remove it yourself.
 
 If the tool finds anything, make sure to reboot that server afterwards.
