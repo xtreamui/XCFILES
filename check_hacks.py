@@ -194,12 +194,18 @@ if __name__ == "__main__":
                     rCommand = "REVOKE ALL PRIVILEGES ON *.* FROM '%s'@'%%';" % rConfig["db_user"]
                     if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
                     else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
+                    rCommand = "DELETE FROM `mysql`.`user` WHERE `user` = '%s';" % rConfig["db_user"]
+                    if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
+                    else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
                     print " "
                     for rHost in rHosts:
                         print "Granted access from: %s" % rHost
                         rCommand = "GRANT ALL ON %s.* TO '%s'@'%s' IDENTIFIED BY '%s';" % (rConfig["db_name"], rConfig["db_user"], rHost, rMySQLPass)
                         if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
                         else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
+                    rCommand = "UPDATE `mysql`.`user` SET `Drop_priv` = 'N' WHERE `user` = '%s';" % rConfig["db_user"]
+                    if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
+                    else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
                     rCommand = "FLUSH PRIVILEGES;"
                     if rRootPass: rRet = os.system("mysql -u root -p%s -e \"%s\" >/dev/null 2>&1" % (rRootPass, rCommand))
                     else: rRet = os.system("mysql -u root -e \"%s\" >/dev/null 2>&1" % rCommand)
